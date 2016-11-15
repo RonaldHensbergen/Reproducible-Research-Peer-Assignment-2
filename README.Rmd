@@ -5,15 +5,52 @@ date: "14 november 2016"
 output: html_document
 ---     
 
-This project is about investigation of storm and other severe weather types that occured between 1950 and 2011. Plan is to identify which types are most devastating economically and to public health.
+###Introduction
+This project is about investigation of storm and other severe weather types that occured between 1950 and 2011. Plan is to identify what the influence is of storms and other severe weather events are on the day to day life of US citizens.
 
 The data source is the U.S. National Oceanic and Atmospheric Administration's (NOAA) [storm database] [1]. The 1950-2011 data is archived at this [link] [2]
 
 Some documentation is made available at below links:
-National Weather Service Storm Data Documentation [Construction/definition of variables] [3]
-National Climatic Data Center Storm Events [FAQ] [4]
 
-```{r init,echo=FALSE}
+* National Weather Service Storm Data Documentation [Construction/definition of variables] [3]
+
+* National Climatic Data Center Storm Events [FAQ] [4]
+
+
+This is the first investigation of this data source, so the initial question is limited to answering 2 questions: 
+
+1. Across the United States, which types of events are most harmful with respect to population health?
+
+2. Across the United States, which types of events have the greatest economic consequences?
+
+###Data Processing
+These are the steps I took to prepare the data to answer the questions above:
+
+1. Download the data from the [archive] [1]
+
+2. Used `read.csv` to load the data in the object `stormdata` (bz2 files can be read directly with read.csv!)
+
+3. To answer question #1, I took the following actions:
+        
+        1. Combining the variables `FATALITIES` and `INJURIES` by addition into `TOTFATINJ`
+        
+        2. Aggregating the data, so that the mean of `TOTFATINJ` is shown per event type (`EVTYPE`)
+        
+        3. Only filter the 3 most severe (3 highest `TOTFATINJ`) to make the resulting plot readable.
+        
+        4. Order the data by `TOTFATINJ` in decreasing order, to make the best readable plot.
+
+4. To answer question #2, I took the following actions:
+
+        1. Combining the variables `PROPDMG` and `CROPDMG` by addition into `TOTDMG`
+        
+        2. Aggregating the data, so that the mean of `TOTDMG` is shown per event type (`EVTYPE`)
+        
+        3. Only filter the 3 most severe (3 highest `TOTDMG`) to make the resulting plot readable.
+        
+        4. Order the data by `TOTDMG` in decreasing order, to make the best readable plot.
+
+```{r data_processing}
 library(ggplot2)
 
 if (!file.exists("./data")) {
@@ -25,20 +62,43 @@ if (!exists("stormdata")) {
         download.file(fileurl, destfile)
         stormdata <- read.csv(destfile)
 }
-```
 
-```{r first_question}
+#Preparation for answering the first question:
+#Sum of the variables of FATALITIES and INJURIES into TOTFATINJ since these describe the total number of 
+#persons affected by the weather event, so this is a measure of the severity of an event for public health.
 stormdata$TOTFATINJ <- stormdata$FATALITIES + stormdata$INJURIES
-stormdata.pop.mean <-
-aggregate(TOTFATINJ ~ EVTYPE, data = stormdata, mean)
-stormdata.pop.mean <-
-head(stormdata.pop.mean[order(-stormdata.pop.mean$TOTFATINJ),], 4)
+#Aggregated with the mean taken of the TOTFATINJ variable
+stormdata.pop.mean <- aggregate(TOTFATINJ ~ EVTYPE, data = stormdata, mean)
+#To limit the information in the plot, only the three most devastating event types are filtered out.
+stormdata.pop.mean <- 
+        head(stormdata.pop.mean[order(-stormdata.pop.mean$TOTFATINJ),], 3)
+#The event types are ordered by TOTFATINJ in a decreasing order, so the plot looks better
 stormdata.pop.mean$EVTYPE <-
 factor(stormdata.pop.mean$EVTYPE, levels = stormdata.pop.mean$EVTYPE[order(-stormdata.pop.mean$TOTFATINJ)])
+
+#Preparation for answering the second question:
+#Sum of the variables of PROPDMG and CROPDMG into TOTDMG since these describe what the financial consequences 
+#are of the particular event, so this is a measure of the severity of an event for the economy.
+stormdata$TOTDMG <- stormdata$PROPDMG + stormdata$CROPDMG
+#Aggregated with the mean taken of the TOTDMG variable
+stormdata.econ.mean <-
+        aggregate(TOTDMG ~ EVTYPE, data = stormdata, mean)
+#To limit the information in the plot, only the three most devastating event types are filtered out.
+stormdata.econ.mean <-
+        head(stormdata.econ.mean[order(-stormdata.econ.mean$TOTDMG),], 3)
+#The event types are ordered by TOTDMG in a decreasing order, so the plot looks better
+stormdata.econ.mean$EVTYPE <-
+factor(stormdata.econ.mean$EVTYPE, levels = stormdata.econ.mean$EVTYPE[order(-stormdata.econ.mean$TOTDMG)])
+```
+
+###Results
+Below is the code and plot to show which event types are most harmful to population health:
+```{r first_question}
+#Building the plot:
 g <- ggplot(stormdata.pop.mean, aes(EVTYPE, TOTFATINJ))
 g <- g + geom_col()
 g <-
-g + ggtitle("Four most harmful storm types for personal health")
+g + ggtitle("Three most harmful storm types for personal health")
 g <-
 g + labs(x = "Storm type", y = "Average of Fatalities and Injuries")
 g <- g + theme(title = element_text(size = 14))
@@ -46,26 +106,20 @@ g <- g + theme(plot.title = element_text(hjust = 0.5))
 g
 ```
 
+Below is the code and plot to show which event types have the most economic consequences:
 ```{r second_question}
-stormdata$TOTDMG <- stormdata$PROPDMG + stormdata$CROPDMG
-stormdata.econ.mean <-
-aggregate(TOTDMG ~ EVTYPE, data = stormdata, mean)
-stormdata.econ.mean <-
-head(stormdata.econ.mean[order(-stormdata.econ.mean$TOTDMG),], 4)
-stormdata.econ.mean$EVTYPE <-
-factor(stormdata.econ.mean$EVTYPE, levels = stormdata.econ.mean$EVTYPE[order(-stormdata.econ.mean$TOTDMG)])
-
+#Building the plot:
 g <- ggplot(stormdata.econ.mean, aes(EVTYPE, TOTDMG))
 g <- g + geom_col()
 g <-
-g + ggtitle("Four most harmful storm types financially (property and crops)")
+g + ggtitle("Three most harmful storm types financially (property and crops)")
 g <- g + labs(x = "Storm type", y = "Total Damage (in $)")
 g <- g + theme(title = element_text(size = 14))
 g <- g + theme(plot.title = element_text(hjust = 0.5))
 g
 ```
 
-```{r session_info, echo=FALSE}
+```{r session_info}
 library(devtools)
 devtools::session_info()
 ```
